@@ -1,30 +1,34 @@
-from flask import Flask, render_template, request, redirect, url_for, session, make_response
-from flask import Flask, render_template, request, redirect, url_for, session
-from datetime import datetime
-from flask import session
-import pandas as pd
-from flask import send_file
+from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from datetime import datetime
+import pandas as pd
+import os
 import sqlite3
-import psycopg2
+
 import os
 
-app = Flask(__name__)
-app.secret_key = 'chave_secreta_segura'
+
+
+app = Flask(__name__)  # Instância do Flask
+app.secret_key = os.getenv('SECRET_KEY', 'chave_padrao_segura')
+
+# Configuração do banco de dados
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///igreja.db')  # Fallback para SQLite
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///igreja.db')
+
+
+# Inicializar SQLAlchemy e Migrate
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-
-
 # Função para conexão com o banco de dados
 def db_connection():
-    conn = psycopg2.connect(
-        dbname=os.getenv('DB_NAME', 'meu_banco'),
-        user=os.getenv('DB_USER', 'meu_usuario'),
-        password=os.getenv('DB_PASSWORD', 'minha_senha'),
-        host=os.getenv('DB_HOST', 'localhost'),  # Use o endereço do servidor do banco
-        port=os.getenv('DB_PORT', '5432')        # Porta padrão do PostgreSQL
-    )
+    conn = sqlite3.connect('igreja.db')
+    conn.execute("PRAGMA busy_timeout = 5000")  # Espera 5 segundos para evitar bloqueio
+    conn.row_factory = sqlite3.Row
     return conn
 
 @app.route('/frequencia', methods=['GET', 'POST'])
