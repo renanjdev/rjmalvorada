@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.0/dist/{{ tema }}/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Configurações</h1>
+        <form action="/salvar_configuracao" method="post">
+            <div class="form-group">
+                <label for="tema">Escolha o Tema:</label>
+                <select class="form-control" id="tema" name="tema">
+                    <option value="superhero">Superhero</option>
+                    <option value="zephyr">Zephyr</option>
+                    <option value="vapor">Vapor</option>
+                    <option value="darkly">Darkly</option>
+                </select>
+            </div>
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-primary">Salvar Configuração</button>
+                <a href="/" class="btn btn-secondary">Voltar</a>
+            </div>
+        </form>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

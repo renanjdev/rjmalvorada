@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Confirmar Exclusão</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.0/dist/{{ tema }}/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center text-danger">Confirmar Exclusão</h1>
+        <p class="text-center">Tem certeza de que deseja excluir o jovem <strong>{{ jovem['nome'] }}</strong>?</p>
+        <div class="d-flex justify-content-center mt-4">
+            <form action="" method="post">
+                <button type="submit" class="btn btn-danger">Sim</button>
+            </form>
+            <a href="/jovens" class="btn btn-secondary ml-3">Não</a>
+        </div>
+    </div>
+</body>
+</html>

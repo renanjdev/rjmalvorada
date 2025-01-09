@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Auxiliar{% endblock %}
+
+{% block content %}
+<h1 class="text-center">Editar Auxiliar</h1>
+<form action="" method="post" class="mt-4">
+    <div class="form-group">
+        <label for="nome">Nome</label>
+        <input type="text" id="nome" name="nome" class="form-control" value="{{ auxiliar['nome'] }}" required>
+    </div>
+    <div class="form-group">
+        <label for="data_nascimento">Data de Nascimento</label>
+        <input type="date" id="data_nascimento" name="data_nascimento" class="form-control" value="{{ auxiliar['data_nascimento'] }}" required>
+    </div>
+    <div class="form-group">
+        <label for="grupo_responsavel">Grupo Responsável</label>
+        <select id="grupo_responsavel" name="grupo_responsavel" class="form-control">
+            <option value="Meninos 0 a 6 anos" {% if auxiliar['grupo_recitativo'] == 'Meninos 0 a 6 anos' %}selected{% endif %}>Meninos 0 a 6 anos</option>
+            <option value="Meninas 0 a 6 anos" {% if auxiliar['grupo_recitativo'] == 'Meninas 0 a 6 anos' %}selected{% endif %}>Meninas 0 a 6 anos</option>
+            <option value="Meninos 7 a 11 anos" {% if auxiliar['grupo_recitativo'] == 'Meninos 7 a 11 anos' %}selected{% endif %}>Meninos 7 a 11 anos</option>
+            <option value="Meninas 7 a 11 anos" {% if auxiliar['grupo_recitativo'] == 'Meninas 7 a 11 anos' %}selected{% endif %}>Meninas 7 a 11 anos</option>
+            <option value="Moços 12+ anos" {% if auxiliar['grupo_recitativo'] == 'Moços 12+ anos' %}selected{% endif %}>Moços 12+ anos</option>
+            <option value="Moças 12+ anos" {% if auxiliar['grupo_recitativo'] == 'Moças 12+ anos' %}selected{% endif %}>Moças 12+ anos</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="whatsapp">WhatsApp</label>
+        <input type="text" id="whatsapp" name="whatsapp" class="form-control" value="{{ auxiliar['whatsapp'] }}">
+    </div>
+    <div class="form-group">
+        <label for="data_batismo">Data de Batismo</label>
+        <input type="date" id="data_batismo" name="data_batismo" class="form-control" value="{{ auxiliar['data_batismo'] }}">
+    </div>
+    <div class="form-group">
+        <label for="data_apresentacao">Data de Apresentação</label>
+        <input type="date" id="data_apresentacao" name="data_apresentacao" class="form-control" value="{{ auxiliar['data_apresentacao'] }}">
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">Salvar</button>
+    <a href="/listar_auxiliares" class="btn btn-secondary mt-3">Cancelar</a>
+</form>
+{% endblock %}
