@@ -574,3 +574,40 @@ if __name__ == '__main__':
 
     import os
 app.secret_key = os.getenv('SECRET_KEY', 'chave_padrao_segura')
+
+def inicializar_banco():
+    conn = sqlite3.connect('igreja.db')
+    cursor = conn.cursor()
+
+    # Criação da tabela `jovens`
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS jovens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            data_nascimento TEXT NOT NULL,
+            whatsapp TEXT,
+            endereco TEXT,
+            pais TEXT,
+            grupo_recitativo TEXT,
+            batizado TEXT,
+            data_batismo TEXT,
+            observacoes TEXT
+        )
+    """)
+
+    # Criação de outras tabelas, se necessário
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS frequencia (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            jovem_id INTEGER NOT NULL,
+            data TEXT NOT NULL,
+            status TEXT NOT NULL,
+            FOREIGN KEY(jovem_id) REFERENCES jovens(id)
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+# Chame a função ao iniciar a aplicação
+inicializar_banco()
