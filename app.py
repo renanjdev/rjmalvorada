@@ -1,18 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, session, send_file
 from flask_sqlalchemy import SQLAlchemy
+import os
 from flask_migrate import Migrate
 from datetime import datetime
 import pandas as pd
 import os
 import sqlite3
 
-import os
-
-
 
 app = Flask(__name__)  # Instância do Flask
-app.secret_key = os.getenv('SECRET_KEY', 'chave_padrao_segura')
-
 
 # Corrigir o prefixo da DATABASE_URL
 database_url = os.getenv('DATABASE_URL')
