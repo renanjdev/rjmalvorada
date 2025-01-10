@@ -61,6 +61,14 @@
             margin: 0 auto;
             display: block;
         }
+        .select-all-row {
+            background-color: #e9ecef;
+        }
+        .select-all-row td {
+            text-align: center;
+            font-weight: bold;
+            color: #333;
+        }
         .btn-container {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -103,13 +111,49 @@
         }
     </style>
     <script>
-        function toggleCheckbox(id) {
+        // Alternar individualmente entre Presente e Falta
+        function toggleCheckbox(id, tipo) {
             const presenteCheckbox = document.getElementById(`presente_${id}`);
             const faltaCheckbox = document.getElementById(`falta_${id}`);
-            if (presenteCheckbox.checked) {
+
+            if (tipo === 'presente' && presenteCheckbox.checked) {
                 faltaCheckbox.checked = false;
-            } else if (faltaCheckbox.checked) {
+            } else if (tipo === 'falta' && faltaCheckbox.checked) {
                 presenteCheckbox.checked = false;
+            }
+        }
+
+        // Selecionar todos na coluna Presente
+        function selecionarTodosPresente() {
+            const checkboxesPresente = document.querySelectorAll('input[id^="presente_"]');
+            const checkboxesFalta = document.querySelectorAll('input[id^="falta_"]');
+            const selectAllPresente = document.getElementById('selectAllPresente');
+            const selectAllFalta = document.getElementById('selectAllFalta');
+
+            // Marcar "Presente" e desmarcar "Falta"
+            if (selectAllPresente.checked) {
+                checkboxesPresente.forEach(checkbox => checkbox.checked = true);
+                checkboxesFalta.forEach(checkbox => checkbox.checked = false);
+                selectAllFalta.checked = false; // Desmarcar "Selecionar Todos Falta"
+            } else {
+                checkboxesPresente.forEach(checkbox => checkbox.checked = false);
+            }
+        }
+
+        // Selecionar todos na coluna Falta
+        function selecionarTodosFalta() {
+            const checkboxesPresente = document.querySelectorAll('input[id^="presente_"]');
+            const checkboxesFalta = document.querySelectorAll('input[id^="falta_"]');
+            const selectAllPresente = document.getElementById('selectAllPresente');
+            const selectAllFalta = document.getElementById('selectAllFalta');
+
+            // Marcar "Falta" e desmarcar "Presente"
+            if (selectAllFalta.checked) {
+                checkboxesFalta.forEach(checkbox => checkbox.checked = true);
+                checkboxesPresente.forEach(checkbox => checkbox.checked = false);
+                selectAllPresente.checked = false; // Desmarcar "Selecionar Todos Presente"
+            } else {
+                checkboxesFalta.forEach(checkbox => checkbox.checked = false);
             }
         }
     </script>
@@ -134,17 +178,32 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for pessoa in pessoas %}
-                    <tr>
-                        <td>{{ pessoa.nome }}</td>
+                    <tr class="select-all-row">
+                        <td>Selecionar Todos</td>
                         <td>
-                            <input type="checkbox" id="presente_{{ pessoa.id }}" name="presente_{{ pessoa.id }}" value="1" onclick="toggleCheckbox({{ pessoa.id }})">
+                            <input type="checkbox" id="selectAllPresente" onclick="selecionarTodosPresente()">
                         </td>
                         <td>
-                            <input type="checkbox" id="falta_{{ pessoa.id }}" name="falta_{{ pessoa.id }}" value="1" onclick="toggleCheckbox({{ pessoa.id }})">
+                            <input type="checkbox" id="selectAllFalta" onclick="selecionarTodosFalta()">
                         </td>
                     </tr>
-                    {% endfor %}
+                    {% if pessoas %}
+                        {% for pessoa in pessoas %}
+                        <tr>
+                            <td>{{ pessoa.nome }}</td>
+                            <td>
+                                <input type="checkbox" id="presente_{{ pessoa.id }}" name="presente_{{ pessoa.id }}" value="1" onclick="toggleCheckbox({{ pessoa.id }}, 'presente')">
+                            </td>
+                            <td>
+                                <input type="checkbox" id="falta_{{ pessoa.id }}" name="falta_{{ pessoa.id }}" value="1" onclick="toggleCheckbox({{ pessoa.id }}, 'falta')">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center text-muted">Nenhum jovem encontrado para este grupo.</td>
+                    </tr>
+                    {% endif %}
                 </tbody>
             </table>
             <div class="btn-container">

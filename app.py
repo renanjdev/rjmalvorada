@@ -36,6 +36,9 @@ def frequencia():
     conn = db_connection()
     cursor = conn.cursor()
 
+    # Obter o grupo responsável do auxiliar logado
+    grupo_responsavel = session.get('grupo_responsavel')
+
     if request.method == 'POST':
         data = request.form['data']
         for key in request.form:
@@ -53,6 +56,19 @@ def frequencia():
         conn.close()
         # Redirecionar para a tela de confirmação
         return redirect(url_for('frequencia_confirmacao'))
+
+    # Filtrar os jovens pelo grupo do auxiliar logado
+    if grupo_responsavel == "todos":  # Administradores visualizam todos os jovens
+        cursor.execute("SELECT * FROM jovens")
+    else:
+        cursor.execute("""
+            SELECT * FROM jovens WHERE grupo_recitativo = ?
+        """, (grupo_responsavel,))
+    jovens = cursor.fetchall()
+
+    conn.close()
+    return render_template('frequencia.html', pessoas=jovens, grupo=grupo_responsavel)
+
 
     # Obter pessoas e grupos
     grupo = request.args.get('grupo', 'todos')
@@ -488,85 +504,109 @@ def controle_frequencia():
 
     return render_template('controle_frequencia.html', pessoas=pessoas, grupo=grupo_responsavel)
 
-@app.route('/relatorios')
+
+# pagina relatórios
+@app.route('/relatorios', methods=['GET'])
 def relatorios():
     conn = db_connection()
     cursor = conn.cursor()
 
-    # Exemplo: Obter frequência dos jovens
-    cursor.execute("""
-        SELECT
-            jovens.id, jovens.nome, jovens.grupo_recitativo AS grupo,
-            COUNT(CASE WHEN frequencia.presente = 1 THEN 1 END) AS presencas,
-            COUNT(CASE WHEN frequencia.presente = 0 THEN 1 END) AS faltas,
-            MAX(frequencia.data) AS ultima_frequencia
-        FROM jovens
-        LEFT JOIN frequencia ON jovens.id = frequencia.jovem_id
-        GROUP BY jovens.id
-    """)
-    rows = cursor.fetchall()
+    # Obter o grupo responsável do auxiliar logado
+    grupo_responsavel = session.get('grupo_responsavel')
 
-    jovens = []
-    alertas = []
-    for row in rows:
-        total = row['presencas'] + row['faltas']
-        frequencia_percentual = (row['presencas'] / total * 100) if total > 0 else 0
-        ausencias_consecutivas = row['faltas'] >= 2
-
-        jovem = {
-            "id": row['id'],
-            "nome": row['nome'],
-            "grupo": row['grupo'],
-            "frequencia": f"{frequencia_percentual:.1f}%",
-            "ultima_frequencia": row['ultima_frequencia'],
-        }
-
-        jovens.append(jovem)
-        if ausencias_consecutivas:
-            alertas.append(jovem)
-
+    if grupo_responsavel == "todos":  # Administradores veem todos os dados
+        cursor.execute("""
+            SELECT jovens.nome, frequencia.data, frequencia.status
+            FROM frequencia
+            JOIN jovens ON frequencia.pessoa_id = jovens.id
+            ORDER BY frequencia.data DESC
+        """)
+    else:
+        cursor.execute("""
+            SELECT jovens.nome, frequencia.data, frequencia.status
+            FROM frequencia
+            JOIN jovens ON frequencia.pessoa_id = jovens.id
+            WHERE jovens.grupo_recitativo = ?
+            ORDER BY frequencia.data DESC
+        """, (grupo_responsavel,))
+    
+    relatorios = cursor.fetchall()
     conn.close()
-    return render_template('relatorios.html', jovens=jovens, alertas=alertas)
+
+    return render_template('relatorios.html', relatorios=relatorios, grupo=grupo_responsavel)
 
 
-@app.route('/relatorios/individual')
-def relatorio_individual():
-    # Dados para a página
-    return render_template('relatorio_individual.html')
-
-@app.route('/relatorios/grupo')
-def relatorio_grupo():
-    # Dados para a página
-    return render_template('relatorio_grupo.html')
-
-@app.route('/relatorios/resumo')
-def relatorio_resumo():
-    # Dados para a página
-    return render_template('relatorio_resumo.html')
-
-@app.route('/exportar-relatorio')
-def exportar_relatorio():
+#frequencia total por membros
+@app.route('/relatorio_frequencia_total')
+def relatorio_frequencia_total():
     conn = db_connection()
     cursor = conn.cursor()
+    query_frequencia = """
+    SELECT j.nome, COUNT(f.status) AS Total_Presencas
+    FROM jovens j
+    LEFT JOIN frequencia f ON j.id = f.pessoa_id AND f.status = 'presente'
+    GROUP BY j.nome;
+    """
 
-    cursor.execute("""
-        SELECT
-            jovens.nome AS Nome, jovens.grupo_recitativo AS Grupo,
-            COUNT(CASE WHEN frequencia.presente = 1 THEN 1 END) AS Presenças,
-            COUNT(CASE WHEN frequencia.presente = 0 THEN 1 END) AS Faltas
-        FROM jovens
-        LEFT JOIN frequencia ON jovens.id = frequencia.jovem_id
-        GROUP BY jovens.id
-    """)
-    data = cursor.fetchall()
+    query_ausencias_consecutivas = """
+    SELECT DISTINCT j.nome
+    FROM jovens j
+    LEFT JOIN frequencia f1 ON j.id = f1.pessoa_id
+    LEFT JOIN frequencia f2 ON j.id = f2.pessoa_id
+    WHERE f1.data = DATE(f2.data, '-7 days') 
+    AND f1.status = 'ausente' 
+    AND f2.status = 'ausente';
+    """
+
+    cursor.execute(query_frequencia)
+    frequencias = cursor.fetchall()
+
+    cursor.execute(query_ausencias_consecutivas)
+    ausencias_consecutivas = {row[0] for row in cursor.fetchall()}
+
     conn.close()
+    return render_template('relatorio_frequencia_total.html', frequencias=frequencias, ausencias_consecutivas=ausencias_consecutivas)
 
-    # Converter para DataFrame e gerar Excel
-    df = pd.DataFrame(data)
-    file_path = 'relatorio_frequencia.xlsx'
-    df.to_excel(file_path, index=False)
 
-    return send_file(file_path, as_attachment=True)
+
+#taxa de frequencia
+@app.route('/relatorio_taxa_frequencia')
+def relatorio_taxa_frequencia():
+    conn = db_connection()
+    cursor = conn.cursor()
+    query = """
+    SELECT jovens.nome,
+           COUNT(CASE WHEN frequencia.status = 'presente' THEN 1 END) * 100.0 / COUNT(frequencia.id) AS Taxa_Frequencia
+    FROM frequencia
+    JOIN jovens ON jovens.id = frequencia.pessoa_id
+    GROUP BY jovens.nome;
+    """
+    cursor.execute(query)
+    resultados = cursor.fetchall()
+    conn.close()
+    return render_template('relatorio_taxa_frequencia.html', resultados=resultados)
+
+
+#mais frequentes
+@app.route('/relatorio_mais_assiduos')
+def relatorio_mais_assiduos():
+    conn = db_connection()
+    cursor = conn.cursor()
+    query = """
+    SELECT jovens.nome, COUNT(frequencia.id) AS Total_Presencas
+    FROM frequencia
+    JOIN jovens ON jovens.id = frequencia.pessoa_id
+    WHERE frequencia.status = 'presente'
+    GROUP BY jovens.nome
+    ORDER BY Total_Presencas DESC
+    LIMIT 5;
+    """
+    cursor.execute(query)
+    resultados = cursor.fetchall()
+    conn.close()
+    return render_template('relatorio_mais_assiduos.html', resultados=resultados)
+
+
 
 # Iniciar o servidor
 if __name__ == '__main__':
@@ -608,6 +648,9 @@ def inicializar_banco():
 
     conn.commit()
     conn.close()
+
+
+    
 
 # Chame a função ao iniciar a aplicação
 inicializar_banco()

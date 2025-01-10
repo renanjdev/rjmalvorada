@@ -3,155 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatórios e Visualizações</title>
-    <!-- Bootstrap CSS -->
+    <title>Relatórios</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <!-- Chart.js para gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        .container {
-            margin-top: 30px;
-            padding: 20px;
-            background-color: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-        .stats-card {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 20px;
-            gap: 20px;
-        }
-        .stats-card .card {
-            flex: 1;
-            padding: 15px;
-            text-align: center;
-            border-radius: 10px;
-            color: #fff;
-        }
-        .card-frequency { background-color: #28a745; }
-        .card-absence { background-color: #dc3545; }
-        .card-low { background-color: #ffc107; }
-        .chart-container { margin-top: 30px; }
-        .alert-section { margin-top: 30px; }
-        .table-container { margin-top: 30px; }
-        .btn-export { margin-top: 20px; }
-    </style>
 </head>
 <body>
-    <div class="container">
-        <h1 class="text-center">Relatórios e Visualizações</h1>
-
-        <!-- Resumo Coletivo -->
-        <div class="stats-card">
-            <div class="card card-frequency">
-                <h3>85%</h3>
-                <p>Frequência Geral no Mês</p>
-            </div>
-            <div class="card card-absence">
-                <h3>15%</h3>
-                <p>Ausências Totais</p>
-            </div>
-            <div class="card card-low">
-                <h3>3º Domingo</h3>
-                <p>Menor Frequência</p>
-            </div>
-        </div>
-
-        <!-- Gráficos de Frequência -->
-        <div class="chart-container">
-            <h3 class="text-center">Gráfico de Frequência Semanal</h3>
-            <canvas id="frequenciaChart"></canvas>
-        </div>
-
-        <!-- Alertas de Ausência -->
-        <div class="alert-section">
-            <h3 class="text-danger">Jovens com 2 Ausências Consecutivas</h3>
-            <ul class="list-group">
-                {% for alerta in alertas %}
-                <li class="list-group-item">
-                    <strong>{{ alerta.nome }}</strong> - {{ alerta.grupo }}
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
-
-        <!-- Tabela de Jovens -->
-        <div class="table-container">
-            <h3>Frequência Individual</h3>
-            <input type="text" class="form-control mb-3" id="filterInput" placeholder="Buscar por nome ou grupo...">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Nome</th>
-                        <th>Grupo</th>
-                        <th>Frequência (%)</th>
-                        <th>Última Frequência</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    {% for jovem in jovens %}
-                    <tr>
-                        <td>{{ jovem.nome }}</td>
-                        <td>{{ jovem.grupo }}</td>
-                        <td>{{ jovem.frequencia }}</td>
-                        <td>{{ jovem.ultima_frequencia }}</td>
-                        <td>
-                            <a href="/editar/{{ jovem.id }}" class="btn btn-warning btn-sm"><i class="fas fa-edit"></i></a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Exportação de Relatório -->
-        <div class="btn-export text-center">
-            <a href="/exportar-relatorio" class="btn btn-success">
-                <i class="fas fa-file-excel"></i> Exportar Relatório
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Menu de Relatórios</h1>
+        <div class="list-group">
+            <a href="/relatorio_frequencia_total" class="list-group-item list-group-item-action">
+                Frequência Total por Membro
+            </a>
+            <a href="/relatorio_taxa_frequencia" class="list-group-item list-group-item-action">
+                Taxa de Frequência
+            </a>
+            <a href="/relatorio_mais_assiduos" class="list-group-item list-group-item-action">
+                Mais Assíduos
             </a>
         </div>
+        <div class="mt-4">
+            <a href="/" class="btn btn-secondary">Voltar ao Início</a>
+        </div>
     </div>
-
-    <!-- Script para Gráfico -->
-    <script>
-        const ctx = document.getElementById('frequenciaChart').getContext('2d');
-        const frequenciaChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['1º Domingo', '2º Domingo', '3º Domingo', '4º Domingo'],
-                datasets: [{
-                    label: 'Frequência',
-                    data: [85, 90, 70, 95],
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false },
-                    title: { display: true, text: 'Frequência Semanal' }
-                }
-            }
-        });
-
-        // Filtro Dinâmico na Tabela
-        document.getElementById('filterInput').addEventListener('keyup', function() {
-            const filterValue = this.value.toLowerCase();
-            const rows = document.querySelectorAll('#tableBody tr');
-            rows.forEach(row => {
-                const name = row.cells[0].textContent.toLowerCase();
-                const group = row.cells[1].textContent.toLowerCase();
-                row.style.display = (name.includes(filterValue) || group.includes(filterValue)) ? '' : 'none';
-            });
-        });
-    </script>
 </body>
 </html>
