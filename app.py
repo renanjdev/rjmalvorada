@@ -6,23 +6,29 @@ import pandas as pd
 import os
 import sqlite3
 
-import os
-
 
 
 app = Flask(__name__)  # Instância do Flask
-app.secret_key = os.getenv('SECRET_KEY', 'chave_padrao_segura')
+app.secret_key = '7698398*Re'
+
+
+# Configurar SQLite como banco local
+database_url = os.getenv('DATABASE_URL')
+if not database_url:  # Se DATABASE_URL não estiver configurado
+    database_url = 'sqlite:///igreja.db'  # Nome do banco de dados SQLite
 
 # Configuração do banco de dados
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///igreja.db')  # Fallback para SQLite
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///igreja.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///igreja.db')
+
+
+
 
 
 # Inicializar SQLAlchemy e Migrate
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+
 
 # Função para conexão com o banco de dados
 def db_connection():
@@ -82,6 +88,8 @@ def home():
         tema = session.get('tema', 'superhero')  # Tema padrão
         return render_template('index.html', tema=tema)
     return redirect(url_for('login'))
+
+
 
 
 @app.route('/configuracoes', methods=['GET', 'POST'])
@@ -572,7 +580,7 @@ def exportar_relatorio():
 if __name__ == '__main__':
     app.run(debug=True)
 
-    import os
+  
 app.secret_key = os.getenv('SECRET_KEY', 'chave_padrao_segura')
 
 def inicializar_banco():
@@ -609,5 +617,12 @@ def inicializar_banco():
     conn.commit()
     conn.close()
 
-# Chame a função ao iniciar a aplicação
+
+
+
+
+from app import inicializar_banco
 inicializar_banco()
+
+if __name__ == "__main__":
+    app.run(port=8000)
