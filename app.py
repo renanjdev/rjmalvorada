@@ -1,34 +1,29 @@
 from flask import Flask, render_template, request, redirect, url_for, session, send_file
 from flask_sqlalchemy import SQLAlchemy
-import os
 from flask_migrate import Migrate
 from datetime import datetime
 import pandas as pd
 import os
 import sqlite3
 
+import os
+
+
 
 app = Flask(__name__)  # Instância do Flask
+app.secret_key = os.getenv('SECRET_KEY', 'chave_padrao_segura')
 
-# Corrigir o prefixo da DATABASE_URL
-database_url = os.getenv('DATABASE_URL')
-if database_url and database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+# Configuração do banco de dados
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///igreja.db')  # Fallback para SQLite
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///igreja.db')
 
 
 # Inicializar SQLAlchemy e Migrate
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
-@app.route("/")
-def home():
-    return "Aplicação funcionando corretamente!"
-
-if __name__ == "__main__":
-    app.run(debug=True)
-    
 # Função para conexão com o banco de dados
 def db_connection():
     conn = sqlite3.connect('igreja.db')
