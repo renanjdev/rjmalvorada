@@ -13,7 +13,6 @@ import os
 app = Flask(__name__)  # Instância do Flask
 app.secret_key = os.getenv('SECRET_KEY', 'chave_padrao_segura')
 
-# Configuração do banco de dados
 
 # Corrigir o prefixo da DATABASE_URL
 database_url = os.getenv('DATABASE_URL')
@@ -26,8 +25,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Inicializar SQLAlchemy e Migrate
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 
+@app.route("/")
+def home():
+    return "Aplicação funcionando corretamente!"
+
+if __name__ == "__main__":
+    app.run(debug=True)
+    
 # Função para conexão com o banco de dados
 def db_connection():
     conn = sqlite3.connect('igreja.db')
