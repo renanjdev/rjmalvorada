@@ -504,107 +504,66 @@ def controle_frequencia():
 
     return render_template('controle_frequencia.html', pessoas=pessoas, grupo=grupo_responsavel)
 
+@app.route('/relatorios')
+def redirecionar_para_relatorio_frequencia():
+    return redirect(url_for('relatorio_frequencia'))
 
-# pagina relatórios
-@app.route('/relatorios', methods=['GET'])
-def relatorios():
+@app.route('/relatorio_frequencia', methods=['GET'])
+def relatorio_frequencia():
     conn = db_connection()
     cursor = conn.cursor()
 
-    # Obter o grupo responsável do auxiliar logado
-    grupo_responsavel = session.get('grupo_responsavel')
+    # Identifica o parâmetro de grupo
+    grupo_param = request.args.get('grupo', 'meu')  # Valor padrão é 'meu'
+    grupo_responsavel = session.get('grupo_responsavel', 'todos') if grupo_param == 'meu' else 'todos'
 
-    if grupo_responsavel == "todos":  # Administradores veem todos os dados
-        cursor.execute("""
-            SELECT jovens.nome, frequencia.data, frequencia.status
-            FROM frequencia
-            JOIN jovens ON frequencia.pessoa_id = jovens.id
-            ORDER BY frequencia.data DESC
-        """)
-    else:
-        cursor.execute("""
-            SELECT jovens.nome, frequencia.data, frequencia.status
-            FROM frequencia
-            JOIN jovens ON frequencia.pessoa_id = jovens.id
-            WHERE jovens.grupo_recitativo = ?
-            ORDER BY frequencia.data DESC
-        """, (grupo_responsavel,))
-    
-    relatorios = cursor.fetchall()
-    conn.close()
+    filtro_grupo = ""
+    params = []
 
-    return render_template('relatorios.html', relatorios=relatorios, grupo=grupo_responsavel)
+    if grupo_responsavel != 'todos':
+        filtro_grupo = "WHERE j.grupo_recitativo = ?"
+        params.append(grupo_responsavel)
 
+    # Query para os dados de frequência
+    cursor.execute(f"""
+        SELECT j.nome,
+               COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
+               COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas,
+               COUNT(f.data) AS reunioes,
+               MAX(CASE WHEN f.status = 'ausente' THEN f.data END) AS ultima_falta,
+               GROUP_CONCAT(f.data || ':' || f.status, '|') AS detalhes
+        FROM jovens j
+        LEFT JOIN frequencia f ON j.id = f.pessoa_id
+        {filtro_grupo}
+        GROUP BY j.nome
+    """, params)
 
-#frequencia total por membros
-@app.route('/relatorio_frequencia_total')
-def relatorio_frequencia_total():
-    conn = db_connection()
-    cursor = conn.cursor()
-    query_frequencia = """
-    SELECT j.nome, COUNT(f.status) AS Total_Presencas
-    FROM jovens j
-    LEFT JOIN frequencia f ON j.id = f.pessoa_id AND f.status = 'presente'
-    GROUP BY j.nome;
-    """
+    dados_frequencia = []
+    for row in cursor.fetchall():
+        membro, presencas, faltas, reunioes, ultima_falta, detalhes_raw = row
+        detalhes = [d.split(':') for d in detalhes_raw.split('|')] if detalhes_raw else []
 
-    query_ausencias_consecutivas = """
-    SELECT DISTINCT j.nome
-    FROM jovens j
-    LEFT JOIN frequencia f1 ON j.id = f1.pessoa_id
-    LEFT JOIN frequencia f2 ON j.id = f2.pessoa_id
-    WHERE f1.data = DATE(f2.data, '-7 days') 
-    AND f1.status = 'ausente' 
-    AND f2.status = 'ausente';
-    """
+        # Determina o status
+        status = "normal"
+        if faltas >= 3:
+            status = "vermelho"
+        elif faltas == 2:
+            status = "amarelo"
+        elif faltas == 1:
+            status = "laranja"
+        elif presencas == reunioes and reunioes > 0:
+            status = "verde"
 
-    cursor.execute(query_frequencia)
-    frequencias = cursor.fetchall()
-
-    cursor.execute(query_ausencias_consecutivas)
-    ausencias_consecutivas = {row[0] for row in cursor.fetchall()}
+        dados_frequencia.append((membro, presencas, faltas, reunioes, ultima_falta, detalhes, status))
 
     conn.close()
-    return render_template('relatorio_frequencia_total.html', frequencias=frequencias, ausencias_consecutivas=ausencias_consecutivas)
 
+    return render_template(
+        'relatorio_frequencia.html',
+        dados_frequencia=dados_frequencia,
+        grupo=grupo_param
+    )
 
-
-#taxa de frequencia
-@app.route('/relatorio_taxa_frequencia')
-def relatorio_taxa_frequencia():
-    conn = db_connection()
-    cursor = conn.cursor()
-    query = """
-    SELECT jovens.nome,
-           COUNT(CASE WHEN frequencia.status = 'presente' THEN 1 END) * 100.0 / COUNT(frequencia.id) AS Taxa_Frequencia
-    FROM frequencia
-    JOIN jovens ON jovens.id = frequencia.pessoa_id
-    GROUP BY jovens.nome;
-    """
-    cursor.execute(query)
-    resultados = cursor.fetchall()
-    conn.close()
-    return render_template('relatorio_taxa_frequencia.html', resultados=resultados)
-
-
-#mais frequentes
-@app.route('/relatorio_mais_assiduos')
-def relatorio_mais_assiduos():
-    conn = db_connection()
-    cursor = conn.cursor()
-    query = """
-    SELECT jovens.nome, COUNT(frequencia.id) AS Total_Presencas
-    FROM frequencia
-    JOIN jovens ON jovens.id = frequencia.pessoa_id
-    WHERE frequencia.status = 'presente'
-    GROUP BY jovens.nome
-    ORDER BY Total_Presencas DESC
-    LIMIT 5;
-    """
-    cursor.execute(query)
-    resultados = cursor.fetchall()
-    conn.close()
-    return render_template('relatorio_mais_assiduos.html', resultados=resultados)
 
 
 

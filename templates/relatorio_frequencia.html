@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Frequência</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .status-bolinha {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .verde {
+            background-color: green;
+        }
+        .amarelo {
+            background-color: yellow;
+        }
+        .laranja {
+            background-color: orange;
+        }
+        .vermelho {
+            background-color: red;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        .status-text {
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        function alternarGrupo() {
+            const botao = document.getElementById('botaoAlternarGrupo');
+            const filtroAtual = botao.dataset.grupo;
+            const novaUrl = `/relatorio_frequencia?grupo=${filtroAtual === 'todos' ? 'meu' : 'todos'}`;
+            window.location.href = novaUrl;
+        }
+    </script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Relatório de Frequência</h1>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <button 
+                id="botaoAlternarGrupo" 
+                class="btn btn-outline-primary" 
+                data-grupo="{{ 'todos' if grupo == 'meu' else 'meu' }}"
+                onclick="alternarGrupo()">
+                Mostrar {{ 'Todos' if grupo == 'meu' else 'Apenas Meu Grupo' }}
+            </button>
+            <a href="/" class="btn btn-secondary">Voltar ao Início</a>
+        </div>
+
+        <div class="table-container">
+            <table class="table table-bordered table-striped align-middle text-center">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Nome</th>
+                        <th>Presenças</th>
+                        <th>Faltas</th>
+                        <th>Total de Reuniões</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for membro, presencas, faltas, reunioes, ultima_falta, detalhes, status in dados_frequencia %}
+                    <tr>
+                        <td>
+                            <button 
+                                class="btn btn-link text-decoration-none"
+                                type="button" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#detalhes_{{ loop.index }}" 
+                                aria-expanded="false" 
+                                aria-controls="detalhes_{{ loop.index }}">
+                                {{ membro }}
+                            </button>
+                        </td>
+                        <td>{{ presencas }}</td>
+                        <td>{{ faltas }}</td>
+                        <td>{{ reunioes }}</td>
+                        <td>
+                            {% if status == 'vermelho' %}
+                            <span class="status-bolinha vermelho" title="Frequência Crítica"></span>
+                            <span class="status-text text-danger">Crítico</span>
+                            {% elif status == 'amarelo' %}
+                            <span class="status-bolinha amarelo" title="Frequência em Risco"></span>
+                            <span class="status-text text-warning">Risco</span>
+                            {% elif status == 'laranja' %}
+                            <span class="status-bolinha laranja" title="Baixa Frequência"></span>
+                            <span class="status-text text-warning">Baixa</span>
+                            {% elif status == 'verde' %}
+                            <span class="status-bolinha verde" title="Alta Frequência"></span>
+                            <span class="status-text text-success">Alta</span>
+                            {% else %}
+                            <span class="status-text">Normal</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr class="collapse" id="detalhes_{{ loop.index }}">
+                        <td colspan="5">
+                            <h5>Detalhes de Frequência</h5>
+                            <ul class="list-group">
+                                {% for data, status in detalhes %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ data }}
+                                    <span class="badge bg-{{ 'success' if status == 'presente' else 'danger' }}">
+                                        {{ 'Presente' if status == 'presente' else 'Falta' }}
+                                    </span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
