@@ -31,19 +31,47 @@
         .status-text {
             font-weight: bold;
         }
-    </style>
-    <script>
-        function alternarGrupo() {
-            const botao = document.getElementById('botaoAlternarGrupo');
-            const filtroAtual = botao.dataset.grupo;
-            const novaUrl = `/relatorio_frequencia?grupo=${filtroAtual === 'todos' ? 'meu' : 'todos'}`;
-            window.location.href = novaUrl;
+        .filter-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
         }
-    </script>
+    </style>
 </head>
 <body>
     <div class="container mt-5">
         <h1 class="text-center mb-4">Relatório de Frequência</h1>
+
+        <div class="filter-buttons">
+            <button class="btn btn-outline-primary" onclick="filtrar('ultimo_cultinho')">Ver Último Cultinho</button>
+            <button class="btn btn-outline-primary" onclick="filtrar('ultimos_4_cultinhos')">Ver os Últimos 4 Cultinhos</button>
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#intervaloModal">Escolher Intervalo</button>
+        </div>
+
+        <div class="modal fade" id="intervaloModal" tabindex="-1" aria-labelledby="intervaloModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="intervaloModalLabel">Escolher Intervalo Personalizado</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="intervaloForm">
+                            <div class="mb-3">
+                                <label for="start_date" class="form-label">Data Inicial:</label>
+                                <input type="date" id="start_date" name="start_date" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label for="end_date" class="form-label">Data Final:</label>
+                                <input type="date" id="end_date" name="end_date" class="form-control">
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="filtrarPersonalizado()">Aplicar Filtro</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <button 
@@ -56,7 +84,7 @@
             <a href="/" class="btn btn-secondary">Voltar ao Início</a>
         </div>
 
-        <div class="table-container">
+        <div class="table-container table-responsive">
             <table class="table table-bordered table-striped align-middle text-center">
                 <thead class="table-primary">
                     <tr>
@@ -67,7 +95,12 @@
                         <th>Status</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tabela-corpo">
+                    {% if dados_frequencia|length == 0 %}
+                    <tr>
+                        <td colspan="5">Nenhum registro encontrado.</td>
+                    </tr>
+                    {% else %}
                     {% for membro, presencas, faltas, reunioes, ultima_falta, detalhes, status in dados_frequencia %}
                     <tr>
                         <td>
@@ -118,10 +151,67 @@
                         </td>
                     </tr>
                     {% endfor %}
+                    {% endif %}
                 </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        <td>{{ total_presencas }}</td>
+                        <td>{{ total_faltas }}</td>
+                        <td>{{ total_reunioes }}</td>
+                        <td>-</td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function filtrar(filtro) {
+            fetch(`/relatorio_frequencia?filtro=${filtro}`)
+                .then(response => response.json())
+                .then(data => atualizarTabela(data))
+                .catch(err => console.error('Erro ao carregar dados:', err));
+        }
+
+        function filtrarPersonalizado() {
+            const startDate = document.getElementById('start_date').value;
+            const endDate = document.getElementById('end_date').value;
+
+            if (!startDate || !endDate) {
+                alert('Por favor, selecione ambas as datas.');
+                return;
+            }
+
+            fetch(`/relatorio_frequencia?start_date=${startDate}&end_date=${endDate}`)
+                .then(response => response.json())
+                .then(data => atualizarTabela(data))
+                .catch(err => console.error('Erro ao carregar dados:', err));
+        }
+
+        function atualizarTabela(data) {
+            const corpoTabela = document.getElementById('tabela-corpo');
+            corpoTabela.innerHTML = '';
+
+            if (data.length === 0) {
+                corpoTabela.innerHTML = '<tr><td colspan="5">Nenhum registro encontrado.</td></tr>';
+                return;
+            }
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+
+                tr.innerHTML = `
+                    <td>${row.membro}</td>
+                    <td>${row.presencas}</td>
+                    <td>${row.faltas}</td>
+                    <td>${row.reunioes}</td>
+                    <td>${row.status}</td>
+                `;
+                corpoTabela.appendChild(tr);
+            });
+        }
+    </script>
 </body>
 </html>
