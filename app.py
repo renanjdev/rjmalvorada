@@ -561,6 +561,96 @@ def relatorios():
 
     return render_template('relatorios.html', relatorios=relatorios, filtro=filtro)
 
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    conn = db_connection()
+    cursor = conn.cursor()
+
+    # Aplicar filtros com base nos parâmetros recebidos
+    filtro = request.args.get('filtro', 'mes_atual')  # Padrão: Mês Atual
+    params = []
+    filtro_data = ""  # Inicializa a variável para o filtro
+
+    if filtro == 'mes_atual':
+        hoje = datetime.now()
+        primeiro_dia = hoje.replace(day=1).strftime('%Y-%m-%d')
+        ultimo_dia = (hoje.replace(month=hoje.month % 12 + 1, day=1) - timedelta(days=1)).strftime('%Y-%m-%d')
+        filtro_data = "f.data BETWEEN ? AND ?"
+        params.extend([primeiro_dia, ultimo_dia])
+
+    elif filtro == 'ultimos_4':
+        hoje = datetime.now()
+        ultimos_4_domingos = [(hoje - timedelta(days=(hoje.weekday() + 1) % 7) - timedelta(weeks=i)).strftime('%Y-%m-%d') for i in range(4)]
+        placeholders = ', '.join('?' for _ in ultimos_4_domingos)
+        filtro_data = f"f.data IN ({placeholders})"
+        params.extend(ultimos_4_domingos)
+
+    elif filtro == 'intervalo':
+        inicio = request.args.get('inicio')
+        fim = request.args.get('fim')
+        if inicio and fim:
+            filtro_data = "f.data BETWEEN ? AND ?"
+            params.extend([inicio, fim])
+
+    # Total de jovens cadastrados
+    total_jovens = cursor.execute("SELECT COUNT(*) FROM jovens").fetchone()[0]
+
+    # Média de presenças
+    media_presencas_query = f"""
+        SELECT AVG(presencas) FROM (
+            SELECT COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas
+            FROM frequencia f
+            LEFT JOIN jovens j ON f.jovem_id = j.id
+            {'WHERE ' + filtro_data if filtro_data else ''}
+            GROUP BY f.jovem_id
+        )
+    """
+    media_presencas = cursor.execute(media_presencas_query, params).fetchone()[0] or 0
+
+    # Jovem com mais faltas
+    mais_faltas_query = f"""
+        SELECT j.nome, COUNT(f.status) AS faltas
+        FROM jovens j
+        LEFT JOIN frequencia f ON j.id = f.jovem_id
+        WHERE f.status = 'ausente'
+        {'AND ' + filtro_data if filtro_data else ''}
+        GROUP BY j.id
+        ORDER BY faltas DESC
+        LIMIT 1
+    """
+    mais_faltas = cursor.execute(mais_faltas_query, params).fetchone()
+
+    # Dados detalhados para relatórios
+    relatorios_query = f"""
+        SELECT j.nome,
+               COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
+               COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas,
+               COUNT(f.data) AS total_cultos
+        FROM jovens j
+        LEFT JOIN frequencia f ON j.id = f.jovem_id
+        {'WHERE ' + filtro_data if filtro_data else ''}
+        GROUP BY j.id
+        ORDER BY j.nome
+    """
+    cursor.execute(relatorios_query, params)
+    relatorios = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        'dashboard.html',
+        total_jovens=total_jovens,
+        media_presencas=media_presencas,
+        mais_faltas=mais_faltas,
+        relatorios=relatorios,
+        filtro=filtro
+    )
+
+
+
+
+
+
 
 @app.route('/exportar_pdf', methods=['GET'])
 def exportar_pdf():
