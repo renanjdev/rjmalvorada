@@ -635,6 +635,11 @@ def dashboard():
     cursor.execute(relatorios_query, params)
     relatorios = cursor.fetchall()
 
+    # Preparar dados para o gráfico de frequência
+    nomes = [row[0] for row in relatorios]
+    presencas = [row[1] for row in relatorios]
+    faltas = [row[2] for row in relatorios]
+
     conn.close()
 
     return render_template(
@@ -643,8 +648,12 @@ def dashboard():
         media_presencas=media_presencas,
         mais_faltas=mais_faltas,
         relatorios=relatorios,
+        nomes=nomes,
+        presencas=presencas,
+        faltas=faltas,
         filtro=filtro
     )
+
 
 
 
