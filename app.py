@@ -636,29 +636,38 @@ def dashboard():
             COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
             COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas,
             COUNT(f.data) AS total_cultos,
-            COALESCE(a.nome, 'Sem responsável definido') AS auxiliar_responsavel,
+            j.grupo_recitativo AS grupo_recitativo,
             GROUP_CONCAT(f.data || ':' || f.status, '|') AS historico
         FROM jovens j
         LEFT JOIN frequencia f ON j.id = f.jovem_id
-        LEFT JOIN auxiliares a ON j.grupo_recitativo = a.grupo_responsavel
         {'WHERE ' + filtro_data if filtro_data else ''}
-        GROUP BY j.id, j.nome, a.nome
+        GROUP BY j.id, j.nome, j.grupo_recitativo
         ORDER BY j.nome
     """
     cursor.execute(relatorios_query, params)
-    relatorios = [
-        {
-            "jovem_nome": row[0],
-            "presencas": row[1],
-            "faltas": row[2],
-            "total_cultos": row[3],
-            "auxiliar_responsavel": row[4],
+    relatorios = []
+    for row in cursor.fetchall():
+        jovem_nome, presencas, faltas, total_cultos, grupo_recitativo, historico_raw = row
+
+        # Buscar auxiliares diretamente com base no grupo
+        auxiliares_query = f"""
+            SELECT DISTINCT nome 
+            FROM auxiliares 
+            WHERE grupo_responsavel = ?
+        """
+        cursor.execute(auxiliares_query, (grupo_recitativo,))
+        auxiliares = [auxiliar[0] for auxiliar in cursor.fetchall()]
+
+        relatorios.append({
+            "jovem_nome": jovem_nome,
+            "presencas": presencas,
+            "faltas": faltas,
+            "total_cultos": total_cultos,
+            "auxiliares_responsaveis": ", ".join(auxiliares) if auxiliares else "Sem responsável definido",
             "historico": [
-                detalhe.split(":") for detalhe in row[5].split("|")
-            ] if row[5] else []
-        }
-        for row in cursor.fetchall()
-    ]
+                detalhe.split(":") for detalhe in historico_raw.split("|")
+            ] if historico_raw else []
+        })
 
     conn.close()
 
@@ -669,6 +678,10 @@ def dashboard():
         mais_faltas=mais_faltas,
         relatorios=relatorios
     )
+
+
+
+
 
 
 

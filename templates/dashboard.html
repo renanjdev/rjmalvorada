@@ -119,7 +119,7 @@
                     </tr>
                     <tr class="collapse" id="detalhes-{{ loop.index }}">
                         <td colspan="4">
-                            <strong>Auxiliar Responsável:</strong> {{ relatorio.auxiliar_responsavel or 'Não definido' }}<br>
+                            <strong>Auxiliares Responsáveis:</strong> {{ relatorio.auxiliares_responsaveis or 'Sem responsável definido' }}<br>
                             <strong>Histórico:</strong>
                             <ul class="list-group mt-2">
                                 {% for data, status in relatorio.historico %}
@@ -133,6 +133,7 @@
                             </ul>
                         </td>
                     </tr>
+                    
                     {% endfor %}
                 </tbody>
             </table>
