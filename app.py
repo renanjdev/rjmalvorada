@@ -561,6 +561,15 @@ def relatorios():
 
     return render_template('relatorios.html', relatorios=relatorios, filtro=filtro)
 
+
+
+
+
+
+
+
+
+
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
     conn = db_connection()
@@ -622,23 +631,34 @@ def dashboard():
 
     # Dados detalhados para relatórios
     relatorios_query = f"""
-        SELECT j.nome,
-               COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
-               COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas,
-               COUNT(f.data) AS total_cultos
+        SELECT 
+            j.nome AS jovem_nome,
+            COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
+            COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas,
+            COUNT(f.data) AS total_cultos,
+            COALESCE(a.nome, 'Sem responsável definido') AS auxiliar_responsavel,
+            GROUP_CONCAT(f.data || ':' || f.status, '|') AS historico
         FROM jovens j
         LEFT JOIN frequencia f ON j.id = f.jovem_id
+        LEFT JOIN auxiliares a ON j.grupo_recitativo = a.grupo_responsavel
         {'WHERE ' + filtro_data if filtro_data else ''}
-        GROUP BY j.id
+        GROUP BY j.id, j.nome, a.nome
         ORDER BY j.nome
     """
     cursor.execute(relatorios_query, params)
-    relatorios = cursor.fetchall()
-
-    # Preparar dados para o gráfico de frequência
-    nomes = [row[0] for row in relatorios]
-    presencas = [row[1] for row in relatorios]
-    faltas = [row[2] for row in relatorios]
+    relatorios = [
+        {
+            "jovem_nome": row[0],
+            "presencas": row[1],
+            "faltas": row[2],
+            "total_cultos": row[3],
+            "auxiliar_responsavel": row[4],
+            "historico": [
+                detalhe.split(":") for detalhe in row[5].split("|")
+            ] if row[5] else []
+        }
+        for row in cursor.fetchall()
+    ]
 
     conn.close()
 
@@ -647,12 +667,13 @@ def dashboard():
         total_jovens=total_jovens,
         media_presencas=media_presencas,
         mais_faltas=mais_faltas,
-        relatorios=relatorios,
-        nomes=nomes,
-        presencas=presencas,
-        faltas=faltas,
-        filtro=filtro
+        relatorios=relatorios
     )
+
+
+
+
+
 
 
 

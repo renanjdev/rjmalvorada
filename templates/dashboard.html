@@ -33,6 +33,9 @@
         .collapsible-row {
             cursor: pointer;
         }
+        .list-group-item {
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -109,17 +112,17 @@
                 <tbody class="text-center">
                     {% for relatorio in relatorios %}
                     <tr class="collapsible-row" data-bs-toggle="collapse" data-bs-target="#detalhes-{{ loop.index }}" aria-expanded="false" aria-controls="detalhes-{{ loop.index }}">
-                        <td>{{ relatorio[0] }}</td>
-                        <td>{{ relatorio[1] }}</td>
-                        <td>{{ relatorio[2] }}</td>
-                        <td>{{ relatorio[1] + relatorio[2] }}</td>
+                        <td>{{ relatorio.jovem_nome }}</td>
+                        <td>{{ relatorio.presencas }}</td>
+                        <td>{{ relatorio.faltas }}</td>
+                        <td>{{ relatorio.total_cultos }}</td>
                     </tr>
                     <tr class="collapse" id="detalhes-{{ loop.index }}">
                         <td colspan="4">
-                            <strong>Auxiliar Responsável:</strong> {{ relatorio[4] }}<br>
+                            <strong>Auxiliar Responsável:</strong> {{ relatorio.auxiliar_responsavel or 'Não definido' }}<br>
                             <strong>Histórico:</strong>
                             <ul class="list-group mt-2">
-                                {% for data, status in relatorio[5] %}
+                                {% for data, status in relatorio.historico %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     {{ data }}
                                     <span class="badge bg-{{ 'success' if status == 'presente' else 'danger' }}">
