@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatórios de Frequência</title>
+    <style>
+        .filtro-buttons {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>
+        Relatórios de Frequência - 
+        {% if filtro == 'mes_atual' %}
+            Mês Atual
+        {% elif filtro == 'ultimos_4' %}
+            Últimos 4 Cultinhos
+        {% elif filtro == 'intervalo' %}
+            Intervalo Personalizado
+        {% else %}
+            Todos os Registros
+        {% endif %}
+    </h1>
+
+    <div class="filtro-buttons">
+        <button onclick="filtrar('mes_atual')">Cultinhos do Mês Atual</button>
+        <button onclick="filtrar('ultimos_4')">Últimos 4 Cultinhos</button>
+        <button onclick="mostrarIntervalo()">Selecionar Intervalo</button>
+        <a href="/exportar_pdf" class="btn btn-secondary">Exportar em PDF</a>
+    </div>
+
+   
+
+    <div id="intervalo" style="display: none;">
+        <form id="intervaloForm" onsubmit="filtrarIntervalo(event)">
+            <label for="inicio">Início:</label>
+            <input type="date" id="inicio" name="inicio" required>
+            <label for="fim">Fim:</label>
+            <input type="date" id="fim" name="fim" required>
+            <button type="submit">Aplicar</button>
+        </form>
+    </div>
+
+  
+    
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Presenças</th>
+                <th>Faltas</th>
+                <th>Total de Cultos</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for relatorio in relatorios %}
+            <tr>
+                <td>{{ relatorio[0] }}</td>
+                <td>{{ relatorio[1] }}</td>
+                <td>{{ relatorio[2] }}</td>
+                <td>{{ relatorio[3] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        function filtrar(filtro) {
+            window.location.href = `/relatorios?filtro=${filtro}`;
+        }
+    
+        function mostrarIntervalo() {
+            document.getElementById('intervalo').style.display = 'block';
+        }
+    
+        function filtrarIntervalo(event) {
+            event.preventDefault();
+            const inicio = document.getElementById('inicio').value;
+            const fim = document.getElementById('fim').value;
+            window.location.href = `/relatorios?filtro=intervalo&inicio=${inicio}&fim=${fim}`;
+        }
+    </script>
+</body>
+</html>
+

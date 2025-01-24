@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import datetime, timedelta
 import pandas as pd
 import os
 import sqlite3
+from reportlab.pdfgen import canvas
+
 
 
 
@@ -42,14 +44,14 @@ def frequencia():
         data = request.form['data']
         for key in request.form:
             if key.startswith('presente_') or key.startswith('falta_'):
-                pessoa_id = key.split('_')[1]
+                jovem_id = key.split('_')[1]  # Extrair o jovem_id da chave
                 status = 'presente' if key.startswith('presente_') else 'ausente'
 
                 # Salvar no banco de dados
                 cursor.execute("""
-                    INSERT INTO frequencia (pessoa_id, data, status)
+                    INSERT INTO frequencia (jovem_id, data, status)
                     VALUES (?, ?, ?)
-                """, (pessoa_id, data, status))
+                """, (jovem_id, data, status))
 
         conn.commit()
         conn.close()
@@ -67,6 +69,7 @@ def frequencia():
 
     conn.close()
     return render_template('frequencia.html', pessoas=jovens, grupo=grupo_responsavel)
+
 
 
     # Obter pessoas e grupos
@@ -505,74 +508,104 @@ def controle_frequencia():
 
     return render_template('controle_frequencia.html', pessoas=pessoas, grupo=grupo_responsavel)
 
-@app.route('/relatorio_frequencia', methods=['GET'])
-def relatorio_frequencia():
-    try:
-        conn = db_connection()
-        cursor = conn.cursor()
+@app.route('/relatorios', methods=['GET'])
+def relatorios():
+    conn = db_connection()
+    cursor = conn.cursor()
 
-        # Identifica os filtros
-        grupo_param = request.args.get('grupo', 'todos')
-        grupo_responsavel = session.get('grupo_responsavel', 'todos') if grupo_param == 'meu' else grupo_param
+    # Filtro padrão: mês atual
+    filtro = request.args.get('filtro', 'mes_atual')
+    params = []
 
-        filtro_grupo = ""
-        params = []
-
-        if grupo_responsavel != 'todos':
-            filtro_grupo = "WHERE j.grupo_recitativo = ?"
-            params.append(grupo_responsavel)
-
-        filtro_data = request.args.get('filtro', None)
+    if filtro == 'mes_atual':
         hoje = datetime.now()
+        primeiro_dia = hoje.replace(day=1).strftime('%Y-%m-%d')
+        ultimo_dia = (hoje.replace(month=hoje.month % 12 + 1, day=1) - timedelta(days=1)).strftime('%Y-%m-%d')
+        filtro_data = "WHERE f.data BETWEEN ? AND ?"
+        params.extend([primeiro_dia, ultimo_dia])
 
-        if filtro_data == 'ultimo_cultinho':
-            ultimo_domingo = hoje - timedelta(days=(hoje.weekday() + 1) % 7)
-            filtro_grupo += " AND f.data = ?" if filtro_grupo else "WHERE f.data = ?"
-            params.append(ultimo_domingo.strftime('%Y-%m-%d'))
+    elif filtro == 'ultimos_4':
+        hoje = datetime.now()
+        ultimos_4_domingos = [(hoje - timedelta(days=(hoje.weekday() + 1) % 7) - timedelta(weeks=i)).strftime('%Y-%m-%d') for i in range(4)]
+        placeholders = ', '.join('?' for _ in ultimos_4_domingos)
+        filtro_data = f"WHERE f.data IN ({placeholders})"
+        params.extend(ultimos_4_domingos)
 
-        elif filtro_data == 'ultimos_4_cultinhos':
-            ultimo_domingo = hoje - timedelta(days=(hoje.weekday() + 1) % 7)
-            quatro_domingos = [(ultimo_domingo - timedelta(weeks=i)).strftime('%Y-%m-%d') for i in range(4)]
-            placeholders = ', '.join('?' for _ in quatro_domingos)
-            filtro_grupo += f" AND f.data IN ({placeholders})" if filtro_grupo else f"WHERE f.data IN ({placeholders})"
-            params.extend(quatro_domingos)
+    elif filtro == 'intervalo':
+        inicio = request.args.get('inicio')
+        fim = request.args.get('fim')
+        if inicio and fim:
+            filtro_data = "WHERE f.data BETWEEN ? AND ?"
+            params.extend([inicio, fim])
+        else:
+            filtro_data = ""
 
-        query = f"""
-            SELECT j.nome,
-                   COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
-                   COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas,
-                   COUNT(f.data) AS reunioes,
-                   MAX(CASE WHEN f.status = 'ausente' THEN f.data END) AS ultima_falta,
-                   GROUP_CONCAT(f.data || ':' || f.status, '|') AS detalhes
-            FROM jovens j
-            LEFT JOIN frequencia f ON j.id = f.jovem_id
-            {filtro_grupo}
-            GROUP BY j.nome
-        """
-        print(f"Query gerada: {query}")
-        print(f"Parâmetros: {params}")
+    else:
+        filtro_data = ""
 
-        cursor.execute(query, params)
-        dados_frequencia = []
-        
+    # Consulta com filtro aplicado
+    query = f"""
+        SELECT j.nome,
+               COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
+               COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas,
+               COUNT(f.data) AS total_cultos
+        FROM jovens j
+        LEFT JOIN frequencia f ON j.id = f.jovem_id
+        {filtro_data}
+        GROUP BY j.id
+        ORDER BY j.nome;
+    """
+    cursor.execute(query, params)
+    relatorios = cursor.fetchall()
+    conn.close()
 
-        conn.close()
-
-        if request.is_json:
-            return jsonify(dados_frequencia)
-
-        return render_template(
-            'relatorio_frequencia.html',
-            dados_frequencia=dados_frequencia,
-            grupo=grupo_param
-        )
-    except Exception as e:
-        print(f"Erro encontrado: {e}")
-        return jsonify({"error": f"Erro ao gerar relatório: {e}"}), 500
+    return render_template('relatorios.html', relatorios=relatorios, filtro=filtro)
 
 
+@app.route('/exportar_pdf', methods=['GET'])
+def exportar_pdf():
+    # Conexão com o banco de dados
+    conn = db_connection()
+    cursor = conn.cursor()
 
+    # Query para obter os dados do relatório
+    query = """
+        SELECT j.nome, 
+               COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
+               COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas
+        FROM jovens j
+        LEFT JOIN frequencia f ON j.id = f.jovem_id
+        GROUP BY j.id
+        ORDER BY j.nome;
+    """
+    cursor.execute(query)
+    resultados = cursor.fetchall()
+    conn.close()
 
+    # Criação do PDF
+    response = make_response()
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'inline; filename=relatorio_frequencia.pdf'
+
+    pdf = canvas.Canvas(response)
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(200, 800, "Relatório de Frequência dos Jovens")
+    pdf.drawString(100, 780, "------------------------------------------")
+    
+    y = 750
+    for row in resultados:
+        nome = row[0]
+        presencas = row[1]
+        faltas = row[2]
+        pdf.drawString(100, y, f"Nome: {nome}, Presenças: {presencas}, Faltas: {faltas}")
+        y -= 20
+        if y < 50:  # Adiciona uma nova página se o espaço terminar
+            pdf.showPage()
+            pdf.setFont("Helvetica", 12)
+            y = 800
+
+    pdf.save()
+    return response
 
 # Iniciar o servidor
 if __name__ == '__main__':
@@ -600,6 +633,8 @@ def inicializar_banco():
             observacoes TEXT
         )
     """)
+
+    
 
     # Criação de outras tabelas, se necessário
     cursor.execute("""
