@@ -1,12 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import os
 import sqlite3
 
-import os
 
 
 
@@ -17,7 +16,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'chave_padrao_segura')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///igreja.db')  # Fallback para SQLite
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///igreja.db')
+
 
 
 # Inicializar SQLAlchemy e Migrate
@@ -499,70 +498,78 @@ def controle_frequencia():
             ORDER BY nome ASC
         """, (grupo_responsavel,))
 
-    pessoas = [{"id": row['id'], "nome": row['nome'], "grupo_recitativo": row['grupo_recitativo']} for row in cursor.fetchall()]
+    pessoas = [{"id": row['id'], "nome": row['nome'], "grupo_recitativo": row['grupo_recitativo']} 
+    
+    for row in cursor.fetchall()]
     conn.close()
 
     return render_template('controle_frequencia.html', pessoas=pessoas, grupo=grupo_responsavel)
 
-@app.route('/relatorios')
-def redirecionar_para_relatorio_frequencia():
-    return redirect(url_for('relatorio_frequencia'))
-
 @app.route('/relatorio_frequencia', methods=['GET'])
 def relatorio_frequencia():
-    conn = db_connection()
-    cursor = conn.cursor()
+    try:
+        conn = db_connection()
+        cursor = conn.cursor()
 
-    # Identifica o parâmetro de grupo
-    grupo_param = request.args.get('grupo', 'meu')  # Valor padrão é 'meu'
-    grupo_responsavel = session.get('grupo_responsavel', 'todos') if grupo_param == 'meu' else 'todos'
+        # Identifica os filtros
+        grupo_param = request.args.get('grupo', 'todos')
+        grupo_responsavel = session.get('grupo_responsavel', 'todos') if grupo_param == 'meu' else grupo_param
 
-    filtro_grupo = ""
-    params = []
+        filtro_grupo = ""
+        params = []
 
-    if grupo_responsavel != 'todos':
-        filtro_grupo = "WHERE j.grupo_recitativo = ?"
-        params.append(grupo_responsavel)
+        if grupo_responsavel != 'todos':
+            filtro_grupo = "WHERE j.grupo_recitativo = ?"
+            params.append(grupo_responsavel)
 
-    # Query para os dados de frequência
-    cursor.execute(f"""
-        SELECT j.nome,
-               COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
-               COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas,
-               COUNT(f.data) AS reunioes,
-               MAX(CASE WHEN f.status = 'ausente' THEN f.data END) AS ultima_falta,
-               GROUP_CONCAT(f.data || ':' || f.status, '|') AS detalhes
-        FROM jovens j
-        LEFT JOIN frequencia f ON j.id = f.pessoa_id
-        {filtro_grupo}
-        GROUP BY j.nome
-    """, params)
+        filtro_data = request.args.get('filtro', None)
+        hoje = datetime.now()
 
-    dados_frequencia = []
-    for row in cursor.fetchall():
-        membro, presencas, faltas, reunioes, ultima_falta, detalhes_raw = row
-        detalhes = [d.split(':') for d in detalhes_raw.split('|')] if detalhes_raw else []
+        if filtro_data == 'ultimo_cultinho':
+            ultimo_domingo = hoje - timedelta(days=(hoje.weekday() + 1) % 7)
+            filtro_grupo += " AND f.data = ?" if filtro_grupo else "WHERE f.data = ?"
+            params.append(ultimo_domingo.strftime('%Y-%m-%d'))
 
-        # Determina o status
-        status = "normal"
-        if faltas >= 3:
-            status = "vermelho"
-        elif faltas == 2:
-            status = "amarelo"
-        elif faltas == 1:
-            status = "laranja"
-        elif presencas == reunioes and reunioes > 0:
-            status = "verde"
+        elif filtro_data == 'ultimos_4_cultinhos':
+            ultimo_domingo = hoje - timedelta(days=(hoje.weekday() + 1) % 7)
+            quatro_domingos = [(ultimo_domingo - timedelta(weeks=i)).strftime('%Y-%m-%d') for i in range(4)]
+            placeholders = ', '.join('?' for _ in quatro_domingos)
+            filtro_grupo += f" AND f.data IN ({placeholders})" if filtro_grupo else f"WHERE f.data IN ({placeholders})"
+            params.extend(quatro_domingos)
 
-        dados_frequencia.append((membro, presencas, faltas, reunioes, ultima_falta, detalhes, status))
+        query = f"""
+            SELECT j.nome,
+                   COUNT(CASE WHEN f.status = 'presente' THEN 1 END) AS presencas,
+                   COUNT(CASE WHEN f.status = 'ausente' THEN 1 END) AS faltas,
+                   COUNT(f.data) AS reunioes,
+                   MAX(CASE WHEN f.status = 'ausente' THEN f.data END) AS ultima_falta,
+                   GROUP_CONCAT(f.data || ':' || f.status, '|') AS detalhes
+            FROM jovens j
+            LEFT JOIN frequencia f ON j.id = f.jovem_id
+            {filtro_grupo}
+            GROUP BY j.nome
+        """
+        print(f"Query gerada: {query}")
+        print(f"Parâmetros: {params}")
 
-    conn.close()
+        cursor.execute(query, params)
+        dados_frequencia = []
+        
 
-    return render_template(
-        'relatorio_frequencia.html',
-        dados_frequencia=dados_frequencia,
-        grupo=grupo_param
-    )
+        conn.close()
+
+        if request.is_json:
+            return jsonify(dados_frequencia)
+
+        return render_template(
+            'relatorio_frequencia.html',
+            dados_frequencia=dados_frequencia,
+            grupo=grupo_param
+        )
+    except Exception as e:
+        print(f"Erro encontrado: {e}")
+        return jsonify({"error": f"Erro ao gerar relatório: {e}"}), 500
+
 
 
 
@@ -607,6 +614,7 @@ def inicializar_banco():
 
     conn.commit()
     conn.close()
+
 
 
     
