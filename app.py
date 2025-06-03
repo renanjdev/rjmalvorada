@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import datetime, timedelta
+import calendar
 import pandas as pd
 import os
 import sqlite3
@@ -31,6 +32,12 @@ def db_connection():
     conn.execute("PRAGMA busy_timeout = 5000")  # Espera 5 segundos para evitar bloqueio
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def ultimo_dia_mes(data):
+    """Retorna o último dia do mês para a data informada."""
+    ultimo_dia = calendar.monthrange(data.year, data.month)[1]
+    return data.replace(day=ultimo_dia)
 
 @app.route('/frequencia', methods=['GET', 'POST'])
 def frequencia():
@@ -69,16 +76,6 @@ def frequencia():
 
     conn.close()
     return render_template('frequencia.html', pessoas=jovens, grupo=grupo_responsavel)
-
-
-
-    # Obter pessoas e grupos
-    grupo = request.args.get('grupo', 'todos')
-    cursor.execute("SELECT * FROM pessoas WHERE grupo = ? OR ? = 'todos'", (grupo, grupo))
-    pessoas = cursor.fetchall()
-    conn.close()
-
-    return render_template('frequencia.html', pessoas=pessoas, grupo=grupo)
 
 
 @app.route('/frequencia_confirmacao')
@@ -443,7 +440,14 @@ def editar_auxiliar(id):
             UPDATE auxiliares
             SET nome = ?, grupo_responsavel = ?, whatsapp = ?, data_batismo = ?, data_apresentacao = ?
             WHERE id = ?
-        """, (nome, grupo_responsavel, whatsapp, data_batismo, data_apresentacao, id))
+        """, (
+            nome,
+            grupo_responsavel,
+            whatsapp,
+            data_batismo,
+            data_apresentacao,
+            id,
+        ))
         conn.commit()
         conn.close()  # Feche a conexão após salvar as alterações!
         return redirect(url_for('listar_auxiliares'))
@@ -520,7 +524,7 @@ def relatorios():
     if filtro == 'mes_atual':
         hoje = datetime.now()
         primeiro_dia = hoje.replace(day=1).strftime('%Y-%m-%d')
-        ultimo_dia = (hoje.replace(month=hoje.month % 12 + 1, day=1) - timedelta(days=1)).strftime('%Y-%m-%d')
+        ultimo_dia = ultimo_dia_mes(hoje).strftime('%Y-%m-%d')
         filtro_data = "WHERE f.data BETWEEN ? AND ?"
         params.extend([primeiro_dia, ultimo_dia])
 
@@ -583,7 +587,7 @@ def dashboard():
     if filtro == 'mes_atual':
         hoje = datetime.now()
         primeiro_dia = hoje.replace(day=1).strftime('%Y-%m-%d')
-        ultimo_dia = (hoje.replace(month=hoje.month % 12 + 1, day=1) - timedelta(days=1)).strftime('%Y-%m-%d')
+        ultimo_dia = ultimo_dia_mes(hoje).strftime('%Y-%m-%d')
         filtro_data = "f.data BETWEEN ? AND ?"
         params.extend([primeiro_dia, ultimo_dia])
 
